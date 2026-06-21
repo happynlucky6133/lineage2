@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<list xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../xsd/npcs.xsd">
+	<!-- Recruiter NPC (60005) — players talk to this NPC to recruit/dismiss -->
+	<npc id="60005" displayId="31285" name="Elder Recruiter" usingServerSideName="true" title="Companion Recruitment" usingServerSideTitle="true" type="L2Npc">
+		<collision>
+			<radius normal="8" />
+			<height normal="23" />
+		</collision>
+	</npc>
+
+	<!-- Companion Entity (60006) — the actual Elven Elder follower summoned by the service -->
+	<npc id="60006" displayId="31324" name="Elven Elder" usingServerSideName="true" title="Companion" usingServerSideTitle="true" type="L2Npc">
+		<stats str="40" int="30" dex="30" wit="25" con="30" men="30">
+			<vitals hp="5000" hpRegen="5" mp="3000" mpRegen="3" />
+			<attack physical="100" magical="200" random="20" critical="4" accuracy="80" attackSpeed="200" type="SWORD" range="40" />
+			<defence physical="200" magical="250" />
+		</stats>
+		<status attackable="false" undying="false" />
+		<skillList>
+			<!-- Heals -->
+			<skill id="1011" level="18" />   <!-- Heal -->
+			<skill id="1015" level="15" />   <!-- Battle Heal -->
+			<skill id="1217" level="33" />   <!-- Greater Heal -->
+			<skill id="1044" level="3" />    <!-- Regeneration -->
+			<skill id="1013" level="32" />   <!-- Recharge -->
+			<!-- Buffs -->
+			<skill id="1068" level="3" />    <!-- Might -->
+			<skill id="1040" level="3" />    <!-- Shield -->
+			<skill id="1035" level="4" />    <!-- Mental Shield -->
+			<skill id="1078" level="6" />    <!-- Concentration -->
+			<skill id="1204" level="2" />    <!-- Wind Walk -->
+			<skill id="1087" level="3" />    <!-- Agility -->
+			<skill id="1033" level="3" />    <!-- Resist Poison -->
+			<skill id="1043" level="1" />    <!-- Blessed Body -->
+		</skillList>
+		<collision>
+			<radius normal="8" />
+			<height normal="23" />
+		</collision>
+	</npc>
+</list>

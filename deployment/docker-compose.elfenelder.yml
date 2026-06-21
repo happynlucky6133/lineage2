@@ -1,0 +1,4 @@
+services:
+  game:
+    environment:
+      ELVEN_ELDER_ENABLED: "true"

@@ -1,28 +1,19 @@
-# lineage2 — AiNPC
+# Lineage 2 — Elven Elder AI Companion
 
-L2J High Five 服务端 AI 白精灵长老队友系统。
+面向 `L2J High Five 2.6.3.0-SNAPSHOT` 的白精灵长老 AI 队友。玩家通过招募 NPC 召唤一个真实 `L2ServitorInstance`；队友使用服务端原生移动、寻路和施法系统自动跟随、治疗及补 Buff，不依赖外部 LLM。
 
-玩家可与招募 NPC 对话，邀请白精灵长老同行。队友自动跟随、在 PvE 中判断主人血量进行治疗、补充辅助魔法。AI 逻辑在服务端以确定性状态机实现，不依赖外部 LLM。
+## 已实现
 
-## 文件一览
+- 一名玩家至多一个队友，并尊重 L2J 唯一召唤槽
+- 750ms 决策循环：紧急治疗、普通治疗、自疗、缺失 Buff、跟随
+- MP 节能、技能冷却和施法条件检查
+- 原生 `L2SummonAI` 移动/施法，跨实例及远距离自动回传
+- 跟随/等待、Buff 开关、状态、解散对话
+- 掉线、死亡、解散和异常创建的完整清理
+- 奥赛、攻城和 PVP 区域自动禁用
 
-- `java/com/lineage2/elfenelder/` — 服务端 Java 代码（Config / Service / Companion / Brain）
-- `html/npc/` — 游戏内 NPC 对话 HTML 脚本
-- `DEPLOYMENT.md` — 部署配置文档
+实际 datapack 包位于：
 
-## 快速开始
+`java/com/l2jserver/datapack/custom/service/elfenelder/`
 
-```bash
-# 1. 复制 Java 源码到 L2J High Five 项目
-cp -r java/com/lineage2/elfenelder/ /path/to/gameserver/src/main/java/com/lineage2/
-
-# 2. 复制对话 HTML 到服务端
-cp -r html/npc/ /path/to/gameserver/data/html/npc/
-
-# 3. 启动时开启
-export AI_COMPANION_ENABLED=true
-
-# 4. 编译并启动游戏服务器
-```
-
-> 部署前必须先填写 `ElvenElderConfig.java` 中的技能 ID 和 NPC 外观 ID（当前为 TODO 占位符）。详见 `DEPLOYMENT.md`。
+部署说明见 [DEPLOYMENT.md](DEPLOYMENT.md)。
