@@ -969,36 +969,23 @@ public class ElvenElderCompanion
     }
 
 
-    // ===== Phase 4 additions: path failure tracking =====
-    private int _pathFailureCount = 0;
-
     /** Increments the consecutive path failure counter. */
     public void incrementPathFailureCount()
     {
-        _pathFailureCount++;
+        _consecutivePathFailures++;
     }
 
     /** Returns the current consecutive path failure count. */
     public int getPathFailureCount()
     {
-        return _pathFailureCount;
+        return _consecutivePathFailures;
     }
 
     /** Resets the consecutive path failure counter. */
     public void resetPathFailureCount()
     {
-        _pathFailureCount = 0;
+        _consecutivePathFailures = 0;
     }
 
     /** Returns whether buff support is enabled. */
-    public boolean isBuffEnabled()
-    {
-        return _buffEnabled;
-    }
-
-    /** Sets whether buff support is enabled. */
-    public void setBuffEnabled(boolean enabled)
-    {
-        this._buffEnabled = enabled;
-    }
 }
