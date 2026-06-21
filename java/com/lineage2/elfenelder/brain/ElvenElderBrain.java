@@ -179,6 +179,13 @@ public class ElvenElderBrain
                 return;
             }
 
+            // Phase 4: cross-instance detection
+            if (detectCrossInstanceChange())
+            {
+                handleCrossInstanceTeleport();
+                return;
+            }
+
             // 1. Survival / legality checks
             if (!checkSurvival())
             {
@@ -216,8 +223,8 @@ public class ElvenElderBrain
                 }
             }
 
-            // 6. Follow
-            if (tryFollow())
+            // 6. Follow (with Phase 4 stuck recovery)
+            if (tryFollowWithRecovery())
             {
                 setState(BrainState.FOLLOW);
                 return;
@@ -310,6 +317,14 @@ public class ElvenElderBrain
         //       setState(BrainState.DISMISSED);
         //       return false;
         //   }
+
+        // Phase 4: check if owner entered a disabled scenario zone
+        if (isOwnerInDisabledScenario())
+        {
+            handleDisabledScenarioEntry();
+            setState(BrainState.DISMISSED);
+            return false;
+        }
 
         // Check if companion is in a disabled scenario
         if (_companion.isInDisabledScenario())
@@ -569,6 +584,305 @@ public class ElvenElderBrain
 
         return false; // Placeholder — replace with actual MP check
     }
+
+
+    // =====================================================================
+    // Buff management (enhanced for Phase 4)
+    // =====================================================================
+
+    /**
+     * Buff application cooldown — prevents rapid buff cycling.
+     * Minimum 5 seconds between buff attempts.
+     */
+    private volatile long _lastBuffTimestamp = 0;
+
+    /**
+     * Attempt to apply missing buffs to the owner.
+     * Enhanced for Phase 4: checks buff duration, MP sufficiency,
+     * and avoids redundant buff applications.
+     *
+     * @return {@code true} if a buff was applied
+     */
+    private boolean tryBuffEnhanced()
+    {
+        // Cooldown check — prevent rapid buff cycling
+        long now = System.currentTimeMillis();
+        if (now - _lastBuffTimestamp < ElvenElderConfig.BUFF_COOLDOWN_MS)
+        {
+            return false;
+        }
+
+        // MP check — cannot afford buffs
+        if (getCompanionMpPercent() < ElvenElderConfig.MP_CONSERVATION_THRESHOLD)
+        {
+            return false;
+        }
+
+        // Get owner's current active buffs
+        java.util.Set<Integer> ownerBuffs = getOwnerActiveBuffs();
+
+        // Get missing buffs from whitelist
+        java.util.List<Integer> missingBuffs = getMissingBuffs(ownerBuffs);
+
+        if (missingBuffs.isEmpty())
+        {
+            return false;
+        }
+
+        // Apply the first missing buff (one per tick to avoid spam)
+        int skillId = missingBuffs.get(0);
+        int skillLevel = getSkillLevelForBuff(skillId);
+
+        _log.fine(() -> "ElvenElderBrain: applying buff skillId=" + skillId
+            + " level=" + skillLevel + " for playerId=" + _companion.getActiveCharId());
+
+        // TODO: cast buff skill via service layer
+        //   _service.castSkill(_companion, _owner, skillId, skillLevel);
+
+        _lastBuffTimestamp = now;
+        return true;
+    }
+
+    /**
+     * Retrieves the owner's currently active buff skill IDs.
+     *
+     * @return set of active buff skill IDs
+     * @throws IllegalStateException if owner is null or invalid
+     */
+    private java.util.Set<Integer> getOwnerActiveBuffs()
+    {
+        // TODO: implement using L2J API
+        //   L2PcInstance pc = (L2PcInstance) _owner;
+        //   return pc.getActiveBuffs().stream()
+        //       .map(b -> b.getId())
+        //       .collect(java.util.stream.Collectors.toSet());
+        throw new IllegalStateException("getOwnerActiveBuffs() not yet wired to L2J API");
+    }
+
+    /**
+     * Determines which buffs from the whitelist are missing from the owner.
+     *
+     * @param currentBuffs set of owner's currently active buff IDs
+     * @return list of missing buff skill IDs (ordered by priority)
+     */
+    private java.util.List<Integer> getMissingBuffs(java.util.Set<Integer> currentBuffs)
+    {
+        java.util.List<Integer> missing = new java.util.ArrayList<>();
+        for (int buffId : ElvenElderConfig.BUFF_WHITELIST)
+        {
+            if (!currentBuffs.contains(buffId))
+            {
+                missing.add(buffId);
+            }
+        }
+        return missing;
+    }
+
+    /**
+     * Returns the effective level for a buff skill on this companion.
+     *
+     * @param skillId the buff skill ID
+     * @return the skill level (or 0 if not available)
+     */
+    private int getSkillLevelForBuff(int skillId)
+    {
+        // TODO: look up from companion's skill table
+        //   return _companion.getSkillLevel(skillId);
+        return 1; // Placeholder
+    }
+
+    // =====================================================================
+    // Disabled scenario detection (Phase 4)
+    // =====================================================================
+
+    /**
+     * Checks whether the owner has entered a disabled scenario zone.
+     * Returns true if the owner is in a forbidden area.
+     *
+     * @return {@code true} if owner is in a disabled scenario
+     */
+    private boolean isOwnerInDisabledScenario()
+    {
+        // TODO: implement using L2J ZoneManager / RegionManager API
+        //   L2PcInstance pc = (L2PcInstance) _owner;
+        //   L2ZoneType zone = pc.getZone();
+        //   if (zone instanceof L2OlympiadZone || zone instanceof L2ArenaZone
+        //       || zone instanceof L2SiegeZone || zone instanceof L2ContestZone) {
+        //       return true;
+        //   }
+        //   return false;
+        return false; // Placeholder — always false until wired
+    }
+
+    /**
+     * Triggers safe dismissal when the owner enters a disabled scenario.
+     * Logs the event and calls dismiss().
+     */
+    private void handleDisabledScenarioEntry()
+    {
+        _log.info(() -> "ElvenElderBrain: owner entered disabled scenario for playerId="
+            + _companion.getActiveCharId() + ", triggering safe dismiss");
+        dismiss();
+    }
+
+    // =====================================================================
+    // Teleport / Cross-instance recovery (Phase 4)
+    // =====================================================================
+
+    /**
+     * Tracks the owner's last known instance ID for cross-instance detection.
+     */
+    private volatile int _lastOwnerInstanceId = -1;
+
+    /**
+     * Detects whether the owner has changed instance (teleported to a different zone/world).
+     *
+     * @return {@code true} if a cross-instance change was detected
+     */
+    private boolean detectCrossInstanceChange()
+    {
+        // TODO: get owner's current instance ID
+        //   L2PcInstance pc = (L2PcInstance) _owner;
+        //   int currentInstanceId = pc.getInstanceId();
+
+        int currentInstanceId = 0; // Placeholder
+
+        if (_lastOwnerInstanceId == -1)
+        {
+            // First tick — initialize
+            _lastOwnerInstanceId = currentInstanceId;
+            return false;
+        }
+
+        if (currentInstanceId != _lastOwnerInstanceId)
+        {
+            _log.info(() -> "ElvenElderBrain: cross-instance detected for playerId="
+                + _companion.getActiveCharId()
+                + " (instance " + _lastOwnerInstanceId + " → " + currentInstanceId + ")");
+            _lastOwnerInstanceId = currentInstanceId;
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Handles a cross-instance teleport event.
+     * Attempts to safely teleport the companion to the owner's location.
+     */
+    private void handleCrossInstanceTeleport()
+    {
+        // TODO: get owner's current position
+        //   L2PcInstance pc = (L2PcInstance) _owner;
+        //   double x = pc.getX();
+        //   double y = pc.getY();
+        //   double z = pc.getZ();
+
+        double x = 0, y = 0, z = 0; // Placeholder
+
+        // Validate the target position is legal (not inside walls, not in forbidden zone)
+        if (!isValidPosition(x, y, z))
+        {
+            _log.warning(() -> "ElvenElderBrain: teleport target position invalid for playerId="
+                + _companion.getActiveCharId() + ", falling back to safe return");
+            // Fall back to safe return to owner
+            safeReturnToOwner();
+            return;
+        }
+
+        // TODO: teleport companion to owner's position
+        //   _companion.teleportTo(x, y, z);
+
+        setState(BrainState.FOLLOW);
+    }
+
+    /**
+     * Validates whether a given position is legal for the companion to occupy.
+     * Checks terrain collision, walkability, and zone restrictions.
+     *
+     * @param x X coordinate
+     * @param y Y coordinate
+     * @param z Z coordinate
+     * @return {@code true} if the position is legal
+     */
+    private boolean isValidPosition(double x, double y, double z)
+    {
+        // TODO: implement using L2J terrain/collision API
+        //   return L2World.getInstance().checkCollision(x, y, z) == 0;
+        return true; // Placeholder — assume valid until wired
+    }
+
+    /**
+     * Performs a safe return to the owner when teleportation is not possible.
+     * Uses the companion's built-in pathfinding fallback.
+     */
+    private void safeReturnToOwner()
+    {
+        _log.info(() -> "ElvenElderBrain: safe return initiated for playerId="
+            + _companion.getActiveCharId());
+        setState(BrainState.RETURN);
+        // TODO: trigger companion's safe return logic
+        //   _companion.safeTeleportBack(ownerX, ownerY, ownerZ);
+    }
+
+    // =====================================================================
+    // Stuck detection and recovery (Phase 4)
+    // =====================================================================
+
+    /**
+     * Handles consecutive pathfinding failures.
+     * If failures exceed the threshold, triggers safe return.
+     */
+    private void handlePathFailure()
+    {
+        _companion.incrementPathFailureCount();
+
+        if (_companion.getPathFailureCount() >= ElvenElderConfig.MAX_PATH_FAILURES)
+        {
+            _log.warning(() -> "ElvenElderBrain: path failure threshold reached ("
+                + _companion.getPathFailureCount() + ") for playerId="
+                + _companion.getActiveCharId() + ", triggering safe return");
+            safeReturnToOwner();
+        }
+    }
+
+    /**
+     * Resets the path failure counter on successful movement.
+     */
+    private void resetPathFailureCount()
+    {
+        _companion.resetPathFailureCount();
+    }
+
+    // =====================================================================
+    // Enhanced follow with stuck recovery (Phase 4)
+    // =====================================================================
+
+    /**
+     * Enhanced follow method that integrates stuck recovery.
+     * Calls the base tryFollow() and adds path failure handling.
+     *
+     * @return {@code true} if a follow action was initiated
+     */
+    private boolean tryFollowWithRecovery()
+    {
+        boolean followed = tryFollow();
+        if (followed)
+        {
+            resetPathFailureCount();
+        }
+        else
+        {
+            // If follow failed and we're supposed to be following,
+            // check if we're stuck
+            if (_currentState == BrainState.FOLLOW || _currentState == BrainState.RETURN)
+            {
+                handlePathFailure();
+            }
+        }
+        return followed;
+    }
+
 
     // =====================================================================
     // Helper stubs (to be wired to L2J APIs in Phase 4+)

@@ -179,4 +179,18 @@ public final class ElvenElderConfig
 	{
 		// prevent instantiation
 	}
+
+
+    // Buff management
+    public static final long    BUFF_COOLDOWN_MS        = 5000;       // Min 5s between buff attempts
+    public static final int     MAX_PATH_FAILURES       = 3;           // Consecutive path failures before safe return
+
+    // Buff whitelist — skill IDs the Elven Elder can cast as support
+    // TODO: replace with actual L2J High Five skill IDs for Elven Elder buffs
+    //       (e.g., Power Blessing, Mana Leech, Agitation, etc.)
+    public static final int[]   BUFF_WHITELIST = {
+        // 1234,  // TODO: Power Blessing - actual skill ID
+        // 1235,  // TODO: Mana Leech - actual skill ID
+        // 1236,  // TODO: Agitation - actual skill ID
+    };
 }
