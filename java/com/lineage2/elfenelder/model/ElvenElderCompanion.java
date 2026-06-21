@@ -710,39 +710,40 @@ public class ElvenElderCompanion
         if (dist < ElvenElderConfig.FOLLOW_DISTANCE_MIN)
         {
             // Too close — move away to comfort max
+            // Lineage II: horizontal plane is X/Y, height is Z
             double dx = _x - ownerX;
-            double dz = _z - ownerZ;
-            double len = Math.sqrt(dx * dx + dz * dz);
+            double dy = _y - ownerY;
+            double len = Math.sqrt(dx * dx + dy * dy);
             if (len > 0)
             {
                 targetX = ownerX + (dx / len) * ElvenElderConfig.FOLLOW_DISTANCE_MAX;
-                targetZ = ownerZ + (dz / len) * ElvenElderConfig.FOLLOW_DISTANCE_MAX;
+                targetY = ownerY + (dy / len) * ElvenElderConfig.FOLLOW_DISTANCE_MAX;
             }
             else
             {
                 // Owner and companion at same spot — move along X axis
                 targetX = ownerX + ElvenElderConfig.FOLLOW_DISTANCE_MAX;
-                targetZ = ownerZ;
+                targetY = ownerY;
             }
-            targetY = ownerY;
+            targetZ = ownerZ; // Keep same height
         }
         else
         {
             // Too far — move to comfort min distance
             double dx = _x - ownerX;
-            double dz = _z - ownerZ;
-            double len = Math.sqrt(dx * dx + dz * dz);
+            double dy = _y - ownerY;
+            double len = Math.sqrt(dx * dx + dy * dy);
             if (len > 0)
             {
                 targetX = ownerX + (dx / len) * ElvenElderConfig.FOLLOW_DISTANCE_MIN;
-                targetZ = ownerZ + (dz / len) * ElvenElderConfig.FOLLOW_DISTANCE_MIN;
+                targetY = ownerY + (dy / len) * ElvenElderConfig.FOLLOW_DISTANCE_MIN;
             }
             else
             {
                 targetX = ownerX + ElvenElderConfig.FOLLOW_DISTANCE_MIN;
-                targetZ = ownerZ;
+                targetY = ownerY;
             }
-            targetY = ownerY;
+            targetZ = ownerZ; // Keep same height
         }
 
         // Validate target position before moving
