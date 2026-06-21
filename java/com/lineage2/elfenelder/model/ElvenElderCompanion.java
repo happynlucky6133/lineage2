@@ -330,6 +330,97 @@ public class ElvenElderCompanion
     }
 
     // =====================================================================
+    // Public API — Actor / Teleport / Skill accessors
+    // =====================================================================
+
+    /**
+     * Returns the underlying L2J NPC entity that represents this companion.
+     *
+     * <p>This method allows the brain layer to access the raw L2J character
+     * instance for operations such as HP/MP checks, positioning, and
+     * skill casting.</p>
+     *
+     * @return the L2J actor instance (currently {@code Object}; TODO: replace
+     *         return type with {@code L2NpcInstance} or {@code L2Character}
+     *         once L2J integration is complete)
+     */
+    public Object getActorInstance()
+    {
+        // TODO: replace return type with concrete L2J type, e.g.:
+        //   return (L2NpcInstance) _actorInstance;
+        return _actorInstance;
+    }
+
+    /**
+     * Teleports this companion to the specified world coordinates.
+     *
+     * <p>The method validates that the companion is not disposed, checks
+     * whether the target position is legal (via {@link #isValidPosition}),
+     * and then delegates to the L2J teleport API on the actor instance.</p>
+     *
+     * @param x target X coordinate
+     * @param y target Y coordinate
+     * @param z target Z coordinate
+     */
+    public void teleportTo(double x, double y, double z)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        // Validate target position before teleporting
+        if (!isValidPosition(x, y, z))
+        {
+            _log.warning(() -> "ElvenElderCompanion: teleport target (" + x + "," + y + "," + z
+                + ") is invalid for playerId=" + _activeCharId);
+            return;
+        }
+
+        // Update tracked coordinates
+        _x = x;
+        _y = y;
+        _z = z;
+
+        // TODO: invoke the actual L2J teleport API on the actor instance.
+        //   Example (once concrete types are wired):
+        //     L2Character npc = (L2Character) _actorInstance;
+        //     npc.teleportTo(x, y, z);
+        //   Or via packet:
+        //     npc.broadcastPacket(new ServerCloseReturn(npc));
+        //     npc.broadcastPacket(new MagicFieldTeleport(npc, x, y, z));
+
+        _log.fine(() -> "ElvenElderCompanion: teleportTo(" + x + "," + y + "," + z
+            + ") for playerId=" + _activeCharId);
+    }
+
+    /**
+     * Returns the companion's skill level for the given skill ID.
+     *
+     * <p>Look up the skill level from the companion's learned skill table.
+     * Returns {@code 0} if the skill is not known.</p>
+     *
+     * @param skillId the L2J skill ID to query
+     * @return the skill level, or {@code 0} if the skill is not learned
+     */
+    public int getSkillLevel(int skillId)
+    {
+        // TODO: query the companion's actual skill table via L2J API.
+        //   Example (once concrete types are wired):
+        //     L2Character npc = (L2Character) _actorInstance;
+        //     if (npc == null) return 0;
+        //     L2Skill skill = npc.getSkillList().getSkill(skillId);
+        //     return skill != null ? skill.getLevel() : 0;
+        //
+        //   Or via singleton table:
+        //     L2SkillTable st = L2SkillTable.getInstance();
+        //     L2Skill info = st.getInfo(skillId, npc.getLevel());
+        //     return info != null ? info.getLevel() : 0;
+
+        return 0; // Placeholder — returns 0 until skill table is integrated
+    }
+
+    // =====================================================================
     // Public API — Distance & follow logic
     // =====================================================================
 
