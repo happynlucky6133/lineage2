@@ -72,6 +72,9 @@ public final class ElvenElderService
 	 */
 	private final Map<Integer, CompanionInstance> _companions = new ConcurrentHashMap<>();
 
+	/** Shared scheduled executor for all companion tick tasks. */
+	private volatile java.util.concurrent.ScheduledExecutorService _tickExecutor;
+
 	// ------------------------------------------------------------------------
 	// Feature gate
 	// ------------------------------------------------------------------------
@@ -107,14 +110,23 @@ public final class ElvenElderService
 	private ScheduledFuture<?> scheduleTickTask(int activeId, ElvenElderCompanion companion, ElvenElderBrain brain)
 	{
 		// TODO: integrate with L2J ThreadPoolManager for real server scheduling.
-		//   For now, we use java.util.concurrent as a stand-in.
-		//   In production this must run on the L2J game server thread pool.
-		java.util.concurrent.ScheduledExecutorService executor = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
-			Thread t = new Thread(r, "ElvenElder-Tick-" + activeId);
-			t.setDaemon(true);
-			return t;
-		});
-		return executor.scheduleAtFixedRate(() -> {
+		//   ThreadPoolManager.getInstance().schedulePeriodicTask(() -> brain.onTick(), 0, ElvenElderConfig.TICK_INTERVAL_MS);
+		//   For now, use a shared daemon executor (one per service, not per companion).
+		if (_tickExecutor == null) {
+			synchronized (ElvenElderService.class) {
+				if (_tickExecutor == null) {
+					_tickExecutor = java.util.concurrent.Executors.newScheduledThreadPool(
+						Math.min(ElvenElderConfig.MAX_COMPANIONS_PER_PLAYER * 10, 64),
+						r -> {
+							Thread t = new Thread(r, "ElvenElder-Tick");
+							t.setDaemon(true);
+							return t;
+						}
+					);
+				}
+			}
+		}
+		return _tickExecutor.scheduleAtFixedRate(() -> {
 			if (!companion.isDisposed()) {
 				brain.onTick();
 			}
@@ -167,15 +179,25 @@ public final class ElvenElderService
 		//   - actor.setIsInvul(true);  // companion is invulnerable in Phase 1
 		// ------------------------------------------------------------------
 
-		// Create a real companion model with valid owner reference (activeId itself serves as owner identity).
-		// Coordinates: TODO — in production, read from owner's current position.
-		// Here we use a fixed spawn offset near the owner (simulated).
-		double spawnX = 0, spawnY = 0, spawnZ = 0; // TODO: get from owner L2PcInstance.getX/Y/Z
+		// TODO: Replace with real L2J spawn API.
+		//   L2PcInstance owner = L2PcInstance.get(activeId);
+		//   double ownerX = owner.getX(), ownerY = owner.getY(), ownerZ = owner.getZ();
+		//   double spawnX = ownerX + 50, spawnY = ownerY + 50, spawnZ = ownerZ;
+		//   L2Npc actor = SpawnTable.getInstance().spawnMonster(
+		//       ElvenElderConfig.COMPANION_DISPLAY_ID, spawnX, spawnY, spawnZ, 0, false, 0);
+		//   actor.setIsInvul(true);
+		//   companion.setEntity(actor);
+		//   brain.setOwner(owner);
+
+		// Phase 5 placeholder: spawn near activeId origin with small offset
+		// (will be replaced with real owner position when wired to L2J)
+		double spawnX = 88000 + (activeId % 100), spawnY = 112000 + (activeId % 100), spawnZ = -3456;
+		Object ownerRef = Integer.valueOf(activeId); // TODO: replace with L2PcInstance
 
 		ElvenElderCompanion companion = new ElvenElderCompanion(activeId, spawnX, spawnY, spawnZ);
 
 		// Create the brain and bind it to the companion.
-		ElvenElderBrain brain = new ElvenElderBrain(companion, this, null); // TODO: pass real owner ref
+		ElvenElderBrain brain = new ElvenElderBrain(companion, this, ownerRef);
 
 		// Schedule the periodic tick task (750ms interval).
 		ScheduledFuture<?> tickTask = scheduleTickTask(activeId, companion, brain);
@@ -401,6 +423,27 @@ public final class ElvenElderService
 			_companionModel = null;
 
 			// _ownerId is intentionally left as-is (primitive, no leak risk)
+		}
+	}
+
+	/**
+	 * Shuts down the shared tick executor.
+	 * Called when the service is unloaded or server stops.
+	 */
+	public void shutdown()
+	{
+		// Cancel all active companions first
+		for (CompanionInstance instance : _companions.values())
+		{
+			instance.shutdown();
+		}
+		_companions.clear();
+
+		// Shutdown shared executor
+		if (_tickExecutor != null)
+		{
+			_tickExecutor.shutdown();
+			_tickExecutor = null;
 		}
 	}
 }

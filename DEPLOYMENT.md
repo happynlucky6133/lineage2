@@ -1,4 +1,15 @@
 # AiNPC — Elven Elder Companion
+> **⚠️ WARNING: This project is NOT yet runnable.**
+> 
+> All phases are skeleton code with TODO placeholders. The following core features
+> are NOT implemented:
+> 
+> - Real L2J High Five API wiring (spawn, move, cast, zone detection)
+> - NPC bypass handler registration
+> - Actual skill/display ID values
+> 
+> See [Issue #5](https://github.com/happynlucky6133/lineage2/issues/5) for the fix plan.
+>
 
 L2J High Five 服务端修改，为游戏添加可招募的白精灵长老（Elven Elder）AI 队友。
 队友自动跟随玩家，在 PvE 中判断战况、治疗主人、补充辅助魔法。
