@@ -371,18 +371,16 @@ public class ElvenElderCompanion
      * {@code FOLLOW_DISTANCE_MIN}, {@code FOLLOW_DISTANCE_MAX}, and
      * {@code RETURN_DISTANCE_THRESHOLD}.</p>
      *
-     * @param comfortMin minimum comfortable distance
-     * @param comfortMax maximum comfortable distance
+     * @param ownerX   owner's current X coordinate
+     * @param ownerY   owner's current Y coordinate
+     * @param ownerZ   owner's current Z coordinate
      * @param maxFollow  maximum distance before forced return
      * @return true if the companion should initiate a return maneuver
      */
-    public boolean isTooFar(double comfortMin, double comfortMax, double maxFollow)
+    public boolean isTooFar(double ownerX, double ownerY, double ownerZ, double maxFollow)
     {
-        double dist = Math.sqrt(distanceSquared(comfortMin, comfortMax, maxFollow));
-        // We compare squared distances to avoid sqrt overhead in hot path
-        // Actually we need real distance, so compute it
-        double d = Math.sqrt(dist);
-        return d > maxFollow;
+        double dist = distance(ownerX, ownerY, ownerZ);
+        return dist > maxFollow;
     }
 
     /**
@@ -411,15 +409,19 @@ public class ElvenElderCompanion
     /**
      * Checks whether the companion is too close to the owner (below comfort min).
      *
+     * @param ownerX   owner's current X coordinate
+     * @param ownerY   owner's current Y coordinate
+     * @param ownerZ   owner's current Z coordinate
+     * @param comfortMin minimum comfortable distance
      * @return true if companion should move closer
      */
-    public boolean isTooClose(double comfortMin)
+    public boolean isTooClose(double ownerX, double ownerY, double ownerZ, double comfortMin)
     {
         if (_state != FollowerState.FOLLOWING)
         {
             return false;
         }
-        double distSq = distanceSquared(0, 0, 0); // TODO: pass owner coords
+        double distSq = distanceSquared(ownerX, ownerY, ownerZ);
         return distSq < (comfortMin * comfortMin);
     }
 
@@ -441,7 +443,7 @@ public class ElvenElderCompanion
 
         // TODO: retrieve owner's current instance/zone token
         //   Object currentInstanceId = ((L2PcInstance)_owner).getInstanceId();
-        Object currentInstanceId = null;
+        Object currentInstanceId = null; // placeholder — see TODO above
 
         if (_lastOwnerInstanceId == null)
         {
@@ -450,7 +452,7 @@ public class ElvenElderCompanion
             return false;
         }
 
-        if (!currentInstanceId.equals(_lastOwnerInstanceId))
+        if (currentInstanceId == null || !currentInstanceId.equals(_lastOwnerInstanceId))
         {
             _log.info(() -> "ElvenElderCompanion: cross-instance teleport detected for playerId=" + _activeCharId);
             _lastOwnerInstanceId = currentInstanceId;

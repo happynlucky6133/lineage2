@@ -21,6 +21,7 @@
 package com.lineage2.elfenelder.service;
 
 import com.lineage2.elfenelder.config.ElvenElderConfig;
+import com.lineage2.elfenelder.model.ElvenElderCompanion;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
@@ -125,7 +126,14 @@ public final class ElvenElderService
 			//   - Attach appearance template (COMPANION_APPEARANCE_TEMPLATE_ID)
 			//   - Register periodic tick task (interval = TICK_INTERVAL_MS)
 			//   - Store owner reference for logout / dismiss hooks
-			CompanionInstance instance = new CompanionInstance(activeId);
+			//
+			// TODO: obtain owner entity and position from L2J core
+			Object owner = null; // TODO: lookup L2PcInstance by activeId
+			double spawnX = 0, spawnY = 0, spawnZ = 0; // TODO: get from owner position
+			Object actor = null; // TODO: spawn companion NPC via L2J
+
+			ElvenElderCompanion companion = new ElvenElderCompanion(activeId, owner, spawnX, spawnY, spawnZ, actor);
+			CompanionInstance instance = new CompanionInstance(activeId, companion);
 			_companions.put(activeId, instance);
 
 			_log.info(() -> "ElvenElderService: companion recruited for playerId=" + activeId);
@@ -263,6 +271,9 @@ public final class ElvenElderService
 		/** Owner's active character ID. */
 		private final int _ownerId;
 
+		/** The actual ElvenElderCompanion model instance. */
+		private volatile ElvenElderCompanion _companionModel;
+
 		/**
 		 * Reference to the companion character / NPC entity.
 		 * Nullified on shutdown to avoid memory leaks.
@@ -278,9 +289,10 @@ public final class ElvenElderService
 		/** Whether this instance is still alive (not shut down). */
 		private volatile boolean _alive = true;
 
-		CompanionInstance(int ownerId)
+		CompanionInstance(int ownerId, ElvenElderCompanion companionModel)
 		{
 			this._ownerId = ownerId;
+			this._companionModel = companionModel;
 			this._companionEntity = null;
 			this._tickTaskHandle = null;
 		}
