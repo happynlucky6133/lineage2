@@ -20,10 +20,14 @@
  */
 package com.lineage2.elfenelder.service;
 
+import com.lineage2.elfenelder.brain.ElvenElderBrain;
 import com.lineage2.elfenelder.config.ElvenElderConfig;
 import com.lineage2.elfenelder.model.ElvenElderCompanion;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -82,6 +86,41 @@ public final class ElvenElderService
 		return ElvenElderConfig.AI_COMPANION_ENABLED;
 	}
 
+	// ------------------------------------------------------------------------
+	// Tick scheduling
+	// ------------------------------------------------------------------------
+
+	/**
+	 * Schedules the periodic tick task for a companion.
+	 * Uses a simple timer-based approach as a placeholder for L2J's
+	 * {@code ThreadPoolManager} integration.
+	 *
+	 * TODO: replace with L2J ThreadPoolManager.schedulePeriodicTask(...)
+	 *   Example:
+	 *     ThreadPoolManager.getInstance().schedulePeriodicTask(() -> brain.onTick(), 0, TICK_INTERVAL_MS);
+	 *
+	 * @param activeId   owner's character ID
+	 * @param companion  the companion model
+	 * @param brain      the brain instance
+	 * @return a ScheduledFuture handle (used for cancellation in shutdown)
+	 */
+	private ScheduledFuture<?> scheduleTickTask(int activeId, ElvenElderCompanion companion, ElvenElderBrain brain)
+	{
+		// TODO: integrate with L2J ThreadPoolManager for real server scheduling.
+		//   For now, we use java.util.concurrent as a stand-in.
+		//   In production this must run on the L2J game server thread pool.
+		java.util.concurrent.ScheduledExecutorService executor = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
+			Thread t = new Thread(r, "ElvenElder-Tick-" + activeId);
+			t.setDaemon(true);
+			return t;
+		});
+		return executor.scheduleAtFixedRate(() -> {
+			if (!companion.isDisposed()) {
+				brain.onTick();
+			}
+		}, ElvenElderConfig.TICK_INTERVAL_MS, ElvenElderConfig.TICK_INTERVAL_MS, TimeUnit.MILLISECONDS);
+	}
+
 	// ========================================================================
 	// PUBLIC API
 	// ========================================================================
@@ -118,32 +157,44 @@ public final class ElvenElderService
 			return false;
 		}
 
-		try
-		{
-			// Create the companion entity and bind it to the owner.
-			// TODO: adapt to actual L2J NPC / character creation APIs.
-			//   - Instantiate a companion actor (template from COMPANION_DISPLAY_ID)
-			//   - Attach appearance template (COMPANION_APPEARANCE_TEMPLATE_ID)
-			//   - Register periodic tick task (interval = TICK_INTERVAL_MS)
-			//   - Store owner reference for logout / dismiss hooks
-			//
-			// TODO: obtain owner entity and position from L2J core
-			Object owner = null; // TODO: lookup L2PcInstance by activeId
-			double spawnX = 0, spawnY = 0, spawnZ = 0; // TODO: get from owner position
-			Object actor = null; // TODO: spawn companion NPC via L2J
+	try
+	{
+		// ------------------------------------------------------------------
+		// TODO: Replace stub entity creation with real L2J APIs.
+		//   - L2PcInstance owner = L2PcInstance.getOrCreate(activeId);
+		//   - double spawnX = owner.getX();  double spawnY = owner.getY();  double spawnZ = owner.getZ();
+		//   - L2Npc actor = SpawnTable.getInstance().spawnMonster(COMPANION_DISPLAY_ID, spawnX, spawnY, spawnZ, 0, false, 0);
+		//   - actor.setIsInvul(true);  // companion is invulnerable in Phase 1
+		// ------------------------------------------------------------------
 
-			ElvenElderCompanion companion = new ElvenElderCompanion(activeId, owner, spawnX, spawnY, spawnZ, actor);
-			CompanionInstance instance = new CompanionInstance(activeId, companion);
-			_companions.put(activeId, instance);
+		// Create a real companion model with valid owner reference (activeId itself serves as owner identity).
+		// Coordinates: TODO — in production, read from owner's current position.
+		// Here we use a fixed spawn offset near the owner (simulated).
+		double spawnX = 0, spawnY = 0, spawnZ = 0; // TODO: get from owner L2PcInstance.getX/Y/Z
 
-			_log.info(() -> "ElvenElderService: companion recruited for playerId=" + activeId);
-			return true;
-		}
-		catch (Exception e)
-		{
-			_log.log(Level.SEVERE, () -> "ElvenElderService: failed to recruit companion for playerId=" + activeId, e);
-			return false;
-		}
+		ElvenElderCompanion companion = new ElvenElderCompanion(activeId, spawnX, spawnY, spawnZ);
+
+		// Create the brain and bind it to the companion.
+		ElvenElderBrain brain = new ElvenElderBrain(companion, this, null); // TODO: pass real owner ref
+
+		// Schedule the periodic tick task (750ms interval).
+		ScheduledFuture<?> tickTask = scheduleTickTask(activeId, companion, brain);
+
+		// Wire the brain into the companion so onTick delegates to the brain.
+		companion.setBrain(brain);
+
+		// Create the instance wrapper.
+		CompanionInstance instance = new CompanionInstance(activeId, companion, brain, tickTask);
+		_companions.put(activeId, instance);
+
+		_log.info(() -> "ElvenElderService: companion recruited for playerId=" + activeId);
+		return true;
+	}
+	catch (Exception e)
+	{
+		_log.log(Level.SEVERE, () -> "ElvenElderService: failed to recruit companion for playerId=" + activeId, e);
+		return false;
+	}
 	}
 
 	/**
@@ -274,27 +325,28 @@ public final class ElvenElderService
 		/** The actual ElvenElderCompanion model instance. */
 		private volatile ElvenElderCompanion _companionModel;
 
-		/**
-		 * Reference to the companion character / NPC entity.
-		 * Nullified on shutdown to avoid memory leaks.
-		 */
+		/** Reference to the companion character / NPC entity. */
 		private volatile Object _companionEntity; // TODO: replace with actual L2J Character type
+
+		/** The brain instance controlling AI decisions. */
+		private volatile ElvenElderBrain _brain;
 
 		/**
 		 * Handle for the periodic tick task.
 		 * Cancelled on shutdown.
 		 */
-		private volatile Object _tickTaskHandle; // TODO: replace with actual scheduler handle type
+		private volatile ScheduledFuture<?> _tickTaskHandle;
 
 		/** Whether this instance is still alive (not shut down). */
 		private volatile boolean _alive = true;
 
-		CompanionInstance(int ownerId, ElvenElderCompanion companionModel)
+		CompanionInstance(int ownerId, ElvenElderCompanion companionModel, ElvenElderBrain brain, ScheduledFuture<?> tickTaskHandle)
 		{
 			this._ownerId = ownerId;
 			this._companionModel = companionModel;
+			this._brain = brain;
+			this._tickTaskHandle = tickTaskHandle;
 			this._companionEntity = null;
-			this._tickTaskHandle = null;
 		}
 
 		int ownerId()
@@ -308,8 +360,13 @@ public final class ElvenElderService
 		}
 
 		/**
-		 * Full cleanup: cancel tick task, nullify entity reference, mark dead.
-		 * Safe to call multiple times.
+		 * Full cleanup in correct order:
+		 *   1. Cancel tick task
+		 *   2. Stop AI (brain.dismiss)
+		 *   3. Delete actor (companion.dismiss)
+		 *   4. Clear references
+		 *   5. Mark dead
+		 * Safe to call multiple times (idempotent).
 		 */
 		void shutdown()
 		{
@@ -319,13 +376,29 @@ public final class ElvenElderService
 			}
 			_alive = false;
 
-			// Cancel the periodic tick task
-			// TODO: call scheduler.cancel(_tickTaskHandle) or equivalent
-			_tickTaskHandle = null;
+			// Step 1: Cancel the periodic tick task
+			if (_tickTaskHandle != null)
+			{
+				_tickTaskHandle.cancel(false);
+				_tickTaskHandle = null;
+			}
 
-			// Release companion entity reference
-			// TODO: detach from world, remove from game engine
+			// Step 2: Stop AI brain
+			if (_brain != null)
+			{
+				_brain.dismiss();
+				_brain = null;
+			}
+
+			// Step 3: Delete companion entity (companion.dismiss handles actor cleanup)
+			if (_companionModel != null)
+			{
+				_companionModel.dismiss();
+			}
+
+			// Step 4: Clear all references to allow GC
 			_companionEntity = null;
+			_companionModel = null;
 
 			// _ownerId is intentionally left as-is (primitive, no leak risk)
 		}

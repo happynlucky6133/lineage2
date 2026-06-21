@@ -15,6 +15,7 @@
  */
 package com.lineage2.elfenelder.model;
 
+import com.lineage2.elfenelder.brain.ElvenElderBrain;
 import com.lineage2.elfenelder.config.ElvenElderConfig;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -78,6 +79,12 @@ public class ElvenElderCompanion
 
     /** Reference to the companion NPC entity managed by L2J. */
     private volatile Object _actorInstance; // TODO: replace with L2NpcInstance / L2Character
+
+    /**
+     * Reference to the AI brain controlling this companion.
+     * Set during recruit, cleared on dismiss.
+     */
+    private transient volatile ElvenElderBrain _brain;
 
     /** Consecutive pathfinding failures — resets on success. */
     private int _consecutivePathFailures;
@@ -151,6 +158,55 @@ public class ElvenElderCompanion
         this._buffEnabled = true;
         this._consecutivePathFailures = 0;
         this._lastOwnerInstanceId = null;
+    }
+
+    /**
+     * Simplified constructor for Phase 1 — creates a companion without
+     * requiring concrete L2J owner/actor references.
+     *
+     * <p>In production, spawnX/Y/Z should come from the owner's current
+     * position (TODO: replace with L2PcInstance.getX/Y/Z).</p>
+     *
+     * @param activeCharId the owner's active character ID
+     * @param spawnX       initial X coordinate
+     * @param spawnY       initial Y coordinate
+     * @param spawnZ       initial Z coordinate
+     */
+    public ElvenElderCompanion(int activeCharId, double spawnX, double spawnY, double spawnZ)
+    {
+        this._activeCharId = activeCharId;
+        this._owner = null; // TODO: set real L2PcInstance owner ref
+        this._actorInstance = null; // TODO: spawn real L2Npc actor
+        this._spawnX = spawnX;
+        this._spawnY = spawnY;
+        this._spawnZ = spawnZ;
+        this._x = spawnX;
+        this._y = spawnY;
+        this._z = spawnZ;
+        this._state = FollowerState.FOLLOWING;
+        this._buffEnabled = true;
+        this._consecutivePathFailures = 0;
+        this._lastOwnerInstanceId = null;
+        this._brain = null;
+    }
+
+    /**
+     * Sets the brain instance that controls this companion's AI.
+     * Called during recruit after brain creation.
+     *
+     * @param brain the brain instance
+     */
+    void setBrain(ElvenElderBrain brain)
+    {
+        this._brain = brain;
+    }
+
+    /**
+     * Returns the brain instance, or null if not yet set.
+     */
+    ElvenElderBrain getBrain()
+    {
+        return _brain;
     }
 
     // =====================================================================
